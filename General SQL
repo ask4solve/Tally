@@ -6,18 +6,23 @@
 
 > Ledger name with GSTIN
 
-Select $Name, $PARTYGSTIN from ledger
+  Select $Name, $PARTYGSTIN from ledger
 
-Select $Name, $PARTYGSTIN from ledger where $Parent Like "%Sundry Debtors%"
+> Name and GstIN of All debtors
 
+  Select $Name, $PARTYGSTIN from ledger where $Parent Like "%Sundry Debtors%"
 
-Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry Debtors%"
+  Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry Debtors%"
 
-Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors"
+> Name, Group and Gstin of Creditors
 
-Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors%" or $Parent Like "%Sundry Debtors%" 
+  Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors"
 
-Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors%" or $Parent Like "%Sundry Debtors%"  and $PartyGSTIN is not null
+> Name, Group and Gstin of both Debtors and Creditors  
+
+  Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors%" or $Parent Like "%Sundry Debtors%" 
+
+  Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors%" or $Parent Like "%Sundry Debtors%"  and $PartyGSTIN is not null
 
 Select $Name, $Parent, $PARTYGSTIN from ledger where $Parent Like "%Sundry creditors%" or $Parent Like "%Sundry Debtors%"  and $PartyGSTIN is null
 
