@@ -1,12 +1,10 @@
-Selecting all Ledger names
+> Selecting all Ledger names
   
-  Select * from Ledger 
+    Select * from Ledger 
 
+    Select $Name from Ledger
 
-
-Select $Name from Ledger
-
-Ledger name with GSTIN
+> Ledger name with GSTIN
 
 Select $Name, $PARTYGSTIN from ledger
 
