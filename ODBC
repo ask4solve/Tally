@@ -1,0 +1,108 @@
+let
+// Define the URL of the Tally server (running locally on port 9000)
+url = "http://localhost:9000",
+// Define the base XML body (TDL request) with placeholders for dynamic values
+_body = "<?xml version=""1.0"" encoding=""utf-8""?>
+<ENVELOPE>
+<HEADER>
+<VERSION>1</VERSION>
+<TALLYREQUEST>Export</TALLYREQUEST>
+<TYPE>Data</TYPE>
+<ID>MyReportLedgerVouchers</ID>
+</HEADER>
+<BODY>
+<DESC>
+<STATICVARIABLES>
+<SVFROMDATE>$fromDate$</SVFROMDATE> <!-- Start Date placeholder -->
+<SVTODATE>$toDate$</SVTODATE> <!-- End Date placeholder -->
+<SVEXPORTFORMAT>ASCII (Comma Delimited)</SVEXPORTFORMAT> <!-- Output as CSV -->
+</STATICVARIABLES>
+<TDL>
+<TDLMESSAGE>
+<!-- Custom report definition -->
+<REPORT NAME=""MyReportLedgerVouchers"">
+<FORMS>MyForm</FORMS>
+</REPORT>
+<FORM NAME=""MyForm"">
+<PARTS>MyPart</PARTS>
+</FORM>
+<PART NAME=""MyPart"">
+<LINES>MyLine</LINES>
+<REPEAT>MyLine : MyCollection</REPEAT>
+<SCROLLED>Vertical</SCROLLED>
+</PART>
+<LINE NAME=""MyLine"">
+<!-- Define output columns -->
+<FIELDS>FldDate,FldVoucherType,FldVoucherNumber,FldLedger,FldAmount,FldNarration</FIELDS>
+</LINE>
+<!-- Field Definitions -->
+<FIELD NAME=""FldDate""><SET>$Date</SET></FIELD>
+<FIELD NAME=""FldVoucherType""><SET>$VoucherTypeName</SET></FIELD>
+<FIELD NAME=""FldVoucherNumber""><SET>$$StringFindAndReplace:$VoucherNumber:'""':'""""'</SET></FIELD>
+<FIELD NAME=""FldLedger""><SET>$$StringFindAndReplace:$FldLedger:'""':'""""'</SET></FIELD>
+<FIELD NAME=""FldAmount""><SET>$FldAmount</SET></FIELD>
+<FIELD NAME=""FldNarration""><SET>$$StringFindAndReplace:$Narration:'""':'""""'</SET></FIELD>
+<!-- Collection definition to fetch voucher data -->
+<COLLECTION NAME=""MyCollection"">
+<TYPE>Voucher</TYPE>
+<FETCH>Narration,AllLedgerEntries</FETCH>
+<FILTER>FilterCancelledVouchers,FilterOptionalVouchers,FilterVch</FILTER>
+</COLLECTION>
+<!-- Custom formula definitions -->
+<SYSTEM TYPE=""Formulae"" NAME=""FilterVch"">NOT $$IsEmpty:($$FilterValue:$LedgerName:AllLedgerEntries:First:FilterVchLedger)</SYSTEM>
+<SYSTEM TYPE=""Formulae"" NAME=""FilterVchLedger"">$$IsEqual:$LedgerName:""$ledgerName$""</SYSTEM>
+<SYSTEM TYPE=""Formulae"" NAME=""FilterVchLedgerNot"">NOT $$IsEqual:$LedgerName:""$ledgerName$""</SYSTEM>
+<SYSTEM TYPE=""Formulae"" NAME=""FldAmount"">if $$IsDr:$$FilterAmtTotal:AllLedgerEntries:FilterVchLedger:$Amount then (-$$FilterAmtTotal:AllLedgerEntries:FilterVchLedger:$Amount) else ($$FilterAmtTotal:AllLedgerEntries:FilterVchLedger:$Amount)</SYSTEM>
+<SYSTEM TYPE=""Formulae"" NAME=""FldLedger"">if $$FilterCount:AllLedgerEntries:FilterVchLedgerNot > 1 then ($$FullList:AllLedgerEntries:$LedgerName) else ($$FilterValue:$LedgerName:AllLedgerEntries:First:FilterVchLedgerNot)</SYSTEM>
+<SYSTEM TYPE=""Formulae"" NAME=""FilterCancelledVouchers"">NOT $IsCancelled</SYSTEM>
+<SYSTEM TYPE=""Formulae"" NAME=""FilterOptionalVouchers"">NOT $IsOptional</SYSTEM>
+</TDLMESSAGE>
+</TDL>
+</DESC>
+</BODY>
+</ENVELOPE>",
+// Format the start date in yyyyMMdd format for Tally
+fromDate = Date.ToText(#date(2020,4,1), "yyyyMMdd"),
+// Format the end date in yyyyMMdd format for Tally
+toDate = Date.ToText(#date(2021,3,31), "yyyyMMdd"),
+// Specify the ledger name to filter vouchers
+ledgerName = "Bank of Baroda-Savings A/c",
+// Replace placeholders in the XML body with actual values
+body = Text.Replace(
+Text.Replace(
+Text.Replace(_body, "$ledgerName$", ledgerName),
+"$fromDate$", fromDate),
+"$toDate$", toDate),
+// Send the XML request to Tally via HTTP POST and get the response
+// Then decode from UTF-16 and replace incorrect line breaks in CSV data
+Source = Csv.Document(
+Text.Replace(
+Text.FromBinary(
+Web.Contents(url,
+[Content=Text.ToBinary(body, TextEncoding.Utf16), // POST body
+Headers=[#"Content-Type"="text/xml;charset=utf-16"]]), // HTTP header
+TextEncoding.Utf16),
+",#(cr,lf)", "#(cr,lf)"), // Fix for extra commas before line breaks
+{ "Date", "Voucher Type", "Voucher Number", "Ledger", "Amount", "Narration" } // CSV headers
+),
+// Convert the Amount column to number, cleaning text like commas and negative brackets
+Tbl01 = Table.TransformColumns(Source, {
+{"Amount", each Number.FromText(
+if _ = "" then "0.00"
+else Text.Replace(
+Text.Replace(_,",",""),
+"(-)","-"))
+as number}
+}),
+// Explicitly convert column types for further processing or analysis
+Tbl02 = Table.TransformColumnTypes(Tbl01,{
+{"Date", type date},
+{"Voucher Type", type text},
+{"Voucher Number", type text},
+{"Ledger", type text},
+{"Amount", type number},
+{"Narration", type text}
+})
+in
+// Output the final cleaned table
+Tbl02
